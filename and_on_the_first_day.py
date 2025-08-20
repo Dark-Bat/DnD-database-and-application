@@ -2,6 +2,8 @@ import models
 import requests
 import time
 from sqlalchemy import *
+from sqlalchemy.exc import OperationalError
+
 
 session = models.SessionLocal()
 
@@ -54,6 +56,8 @@ def fetch_json(endpoint):
 
 
 def load_races(session):
+    models.Race.__table__.drop(models.engine, checkfirst=True)
+    models.Base.metadata.create_all(models.engine, tables=[models.Race.__table__])
     data = fetch_json("races")["results"]
     for item in data:
         race_data = fetch_json(f"races/{item['index']}")
@@ -61,26 +65,59 @@ def load_races(session):
             index=race_data['index'],
             name=race_data["name"],
             asi=str(race_data.get("ability_bonuses", [])),
-            traits=str([t["name"] for t in race_data.get("traits", [])])
+            speed = race_data['speed'],
+            alignment = race_data['alignment'],
+            age = race_data['age'],
+            size = race_data['size'],
+            size_description = race_data['size_description'],
+            starting_proficiencies = race_data['starting_proficiencies'],
+            languages =race_data['languages'],
+            language_description = race_data['language_desc'],
+            traits=str([t["name"] for t in race_data.get("traits", [])]),
+            url = race_data['url']
         )
         session.merge(race)
+    session.commit()
+
+
 
 def load_subraces(session):
+    models.Subrace.__table__.drop(models.engine, checkfirst=True)
+
+    for attempt in range(5):
+        try:
+            models.Base.metadata.create_all(models.engine, tables=[models.Subrace.__table__])
+            break
+        except OperationalError as e:
+            if "database is locked" in str(e):
+                print("Database is locked. Retrying...")
+                time.sleep(1)
+            else:
+                raise
+
     data = fetch_json("subraces")["results"]
     for item in data:
         subrace_data = fetch_json(f"subraces/{item['index']}")
+        race_index = subrace_data["race"]["index"]
+        race_obj = session.query(models.Race).filter_by(index=race_index).first()
+        if race_obj is None:
+            raise ValueError(f"Race with index '{race_index}' not found.")
+
         subrace = models.Subrace(
             index=subrace_data["index"],
             name=subrace_data["name"],
-            race=subrace_data["race"]["name"],
             desc=subrace_data.get("desc", ""),
             ability_bonuses=subrace_data.get("ability_bonuses", []),
             racial_traits=subrace_data.get("racial_traits", []),
             languages=subrace_data.get("languages", []),
             starting_proficiencies=subrace_data.get("starting_proficiencies", []),
-            url=subrace_data["url"]
+            url=subrace_data["url"],
+            race_index=race_index
         )
         session.merge(subrace)
+    session.commit()
+
+
 
 def load_spells(session):
     data = fetch_json("spells")["results"]
@@ -109,6 +146,9 @@ def load_spells(session):
         session.merge(spell)
 
 def load_classes(session):
+    models.Class.__table__.drop(models.engine, checkfirst=True)
+    models.Base.metadata.create_all(models.engine, tables=[models.Class.__table__])
+
     data = fetch_json("classes")["results"]
     for item in data:
         class_data = fetch_json(f"classes/{item['index']}")
@@ -127,17 +167,33 @@ def load_classes(session):
         )
         session.merge(class_obj)
 
+    session.commit()
+
+
 def load_subclasses(session):
+    models.Subclass.__table__.drop(models.engine, checkfirst=True)
+    models.Base.metadata.create_all(models.engine, tables=[models.Subclass.__table__])
+
     data = fetch_json("subclasses")["results"]
     for item in data:
         subclass_data = fetch_json(f"subclasses/{item['index']}")
+        class_index = subclass_data["class"]["index"]
+        parent_class = session.query(models.Class).filter_by(index=class_index).first()
+
+        if parent_class is None:
+            print(f"Class '{class_index}' not found for subclass '{subclass_data['index']}'. Skipping.")
+            continue
+
         subclass_obj = models.Subclass(
             index=subclass_data["index"],
             name=subclass_data["name"],
-            class_index=subclass_data["class"]["index"],
-            url=subclass_data["url"]
+            url=subclass_data["url"],
+            parent_class=parent_class 
         )
         session.merge(subclass_obj)
+
+    session.commit()
+
 
 def load_traits(session):
     data = fetch_json("traits")["results"]

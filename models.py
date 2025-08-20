@@ -1,7 +1,12 @@
 from sqlalchemy import *
 from sqlalchemy.orm import *
+import os
 
-DATABASE_URL = 'sqlite:///testDB.db'
+base_dir = os.path.dirname(__file__)
+os.makedirs(os.path.join(base_dir, "data"), exist_ok=True)
+db_path = os.path.join(base_dir, "data", "DnD.db")
+DATABASE_URL = f"sqlite:///{db_path}"
+
 engine = create_engine(DATABASE_URL, echo=True, future=True)
 SessionLocal = sessionmaker(bind=engine)
 
@@ -20,32 +25,43 @@ class Proficiency(Base):
 class Race(Base):
     __tablename__ = "races"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
-    index = Column(String, nullable=False, unique=True)
-    asi = Column(String)
-    traits = Column(String)
-    url = Column(String, nullable=True)
+    id                  = Column(Integer, primary_key=True)
+    name                = Column(String,  nullable=False)
+    index               = Column(String,  nullable=False, unique=True)
+    speed               = Column(Integer)
+    asi                 = Column(String)
+    alignment           = Column(String)
+    age                 = Column(String)
+    size                = Column(String)
+    size_description    = Column(String)
+    starting_proficiencies = Column(JSON)
+    languages           = Column(JSON)
+    language_description  = Column(String)
+    traits              = Column(JSON)
+    url                 = Column(String, nullable=True)
 
+    subraces = relationship(
+        "Subrace",
+        back_populates="race",
+        cascade="all, delete-orphan"
+    )
 
 class Subrace(Base):
     __tablename__ = "subraces"
 
-    id = Column(Integer, primary_key=True)
-    index = Column(String, unique=True, nullable=False)
-    name = Column(String, nullable=False)
-    race = Column(String, ForeignKey("races.name"))  # or races.index if you store that
-    desc = Column(Text)
+    id                      = Column(Integer, primary_key=True)
+    index                   = Column(String,  nullable=False, unique=True)
+    name                    = Column(String,  nullable=False)
+    desc                    = Column(Text)
+    ability_bonuses         = Column(JSON)
+    racial_traits           = Column(JSON)
+    languages               = Column(JSON)
+    starting_proficiencies  = Column(JSON)
+    url                     = Column(String, nullable=True)
 
-    ability_bonuses = Column(JSON)       # List of ability score bonuses
-    racial_traits = Column(JSON)                # List of trait references
-    languages = Column(JSON)             # Optional additional languages
-    starting_proficiencies = Column(JSON)  # Optional proficiencies
-    url = Column(String, nullable=True)
-
-
-    parent_race = relationship("Race", backref="subraces_list")
-
+    race_index              = Column(String, ForeignKey("races.index"), nullable=False)
+    race                    = relationship("Race", backref="subraces_list")
+    
 
 class Spell(Base):
     __tablename__ = 'spells'
@@ -89,6 +105,7 @@ class Class(Base):
     spellcasting = Column(JSON)
     url = Column(String, nullable=True)
 
+    subclasses = relationship("Subclass", back_populates="parent_class", cascade="all, delete-orphan")
 
 class ClassLevel(Base):
     __tablename__ = "class_levels"
@@ -102,7 +119,6 @@ class ClassLevel(Base):
     class_specific = Column(JSON)
     url = Column(String, nullable=True)
 
-
 class Subclass(Base):
     __tablename__ = "subclasses"
 
@@ -112,7 +128,7 @@ class Subclass(Base):
     class_index = Column(String, ForeignKey("classes.index"))
     url = Column(String, nullable=True)
 
-    parent_class = relationship("Class", backref="subclasses_list")
+    parent_class = relationship("Class", back_populates="subclasses")
 
 class Equipment(Base):
     __tablename__ = "equipment"
