@@ -23,7 +23,7 @@ class HomebrewWindow(QWidget):
         types = [
             "Spell", "Race", "Subrace", "Class", "Subclass",
             "Equipment", "Monster", "Magic Item", "Weapon",
-            "Feature", "Trait"
+            "Feature", "Trait", "Background"
         ]
         self.type_selector.addItems(types)
         main_layout.addWidget(self.type_selector)
@@ -124,6 +124,10 @@ class HomebrewWindow(QWidget):
                 ("Subraces (comma)", QLineEdit),
                 ("Description", QTextEdit),
             ],
+            "Background": [
+                ("Name", QLineEdit),
+                ("Description", QTextEdit)
+            ]
         }
 
         # 4) Build each form dynamically and keep its inputs in a dict

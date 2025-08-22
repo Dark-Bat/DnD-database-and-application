@@ -1,7 +1,7 @@
 import requests
 from models import (
     SessionLocal, Class, Spell, Race, Monster, Equipment,
-    Feature, Subclass
+    Feature, Subclass, Background
 )
 
 BASE_URL = 'https://www.dnd5eapi.co/api'
@@ -39,6 +39,7 @@ def search():
     add_items(session.query(Equipment).all(), 'equipment')
     add_items(session.query(Feature).all(), 'features')
     add_items(session.query(Subclass).all(), 'subclasses')
+    add_items(session.query(Background).all(), 'backgrounds')
 
     session.close()
     return all_items
@@ -67,7 +68,8 @@ def get_item_by_index(category, index):
         'monsters': Monster,
         'equipment': Equipment,
         'features': Feature,
-        'subclasses': Subclass
+        'subclasses': Subclass,
+        'backgrounds': Background
     }
 
     model = model_map.get(category)

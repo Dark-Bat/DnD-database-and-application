@@ -1,5 +1,5 @@
-from PySide6.QtWidgets import QListWidget, QListWidgetItem, QComboBox, QPushButton, QWidget, QCheckBox, QVBoxLayout, QLabel, QLineEdit, QHBoxLayout, QFrame
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QGridLayout, QListWidget, QToolBar, QListWidgetItem, QComboBox, QPushButton, QWidget, QCheckBox, QVBoxLayout, QLabel, QLineEdit, QHBoxLayout, QFrame
+from PySide6.QtCore import Qt,QPoint
 from models import SessionLocal
 import models
 import api
@@ -37,59 +37,99 @@ class MainUI(QWidget):
         'traits': self.format_trait,
         'features': self.format_feature,
         'conditions': self.format_condition,
-        'monsters': self.format_monster
+        'monsters': self.format_monster,
+        'backgrounds': self.format_background
     }
+#Toolbar
+        self.toolbar = QHBoxLayout()
+        self.toolbar.setContentsMargins(5, 5, 5, 5)
+
+        char_button = QPushButton("Character")
+        user_button = QPushButton("User")
 
         self.search_box = QLineEdit()
-        self.info_label = QLabel("Search")
-        self.info_label.setTextFormat(Qt.TextFormat.RichText); self.info_label.setWordWrap(True)
-        self.prof_label = QLabel("Proficiencies")
+        self.search_box.setFixedWidth(300)
+
+        self.toolbar.addWidget(char_button)
+        self.toolbar.addStretch(1)
+        self.toolbar.addWidget(self.search_box)
+        self.toolbar.addStretch(1)
+        self.toolbar.addWidget(user_button)
+        self.toolbar_widget = QWidget()
+        self.toolbar_widget.setLayout(self.toolbar)
+
+        self.toolbar_line = QFrame()
+        self.toolbar_line.setFrameShape(QFrame.HLine)
+        self.toolbar_line.setFrameShadow(QFrame.Sunken)
+        
+
+        self.big_toolbar = QGridLayout()
+        self.big_toolbar_widget = QWidget()
+        self.big_toolbar_widget.setLayout(self.big_toolbar)
+
+        self.big_toolbar.addWidget(self.toolbar_widget,0,0)
+        self.big_toolbar.addWidget(self.toolbar_line,1,0)
+
+
+#Sidebar 
+        self.big_sidebar = QGridLayout()     
+        self.sidebar = QVBoxLayout()
+        self.recap = QPushButton("Session recaps")
+        self.sidebar.addWidget(self.recap)
+        self.notes = QPushButton("Notes")
+        self.sidebar.addWidget(self.notes)
+        self.dice = QPushButton("Dice Roller")
+        self.sidebar.addWidget(self.dice)
+        self.encounter_builder = QPushButton("Design Encounter")
+        self.sidebar.addWidget(self.encounter_builder)
+        self.messages = QPushButton("Messages")
+        self.sidebar.addWidget(self.messages)
+        self.sidebar_widget = QWidget()
+        self.sidebar_widget.setLayout(self.sidebar)
+        self.sidebar.addStretch()
+        self.create_char = QPushButton("Create Character")
+        self.sidebar.addWidget(self.create_char)
+        self.add_content = QPushButton("Add Content")
+        self.sidebar.addWidget(self.add_content)
+
+
+        self.sidebar_line = QFrame()
+        self.sidebar_line.setFrameShape(QFrame.VLine)
+        self.sidebar_line.setFrameShadow(QFrame.Sunken)
+
+        self.big_sidebar_widget = QWidget()
+        self.big_sidebar_widget.setLayout(self.big_sidebar)
+        self.big_sidebar.addWidget(self.sidebar_line,0,1)
+        self.big_sidebar.addWidget(self.sidebar_widget,0,0)
+        self.big_sidebar_widget.setFixedWidth(200)
+
+#Display set up
+        self.display = QVBoxLayout()
+        self.info_label = QLabel("Placeholder for text")
+        self.display.addWidget(self.info_label)
+        self.display_widget = QWidget()
+        self.display_widget.setLayout(self.display)
+        self.display.addStretch()
+#Set up
+        self.main_layout = QGridLayout()
+        self.main_layout.addWidget(self.big_toolbar_widget,0,0,1,2)
+        self.main_layout.addWidget(self.big_sidebar_widget,1,0)
+        self.main_layout.addWidget(self.display_widget,1,1, alignment=Qt.AlignTop | Qt.AlignLeft)
+
+        self.setLayout(self.main_layout)
+
+    def setup_search_overlay(self):
+        """Create the floating suggestion box for search."""
         self.suggestion_list = QListWidget()
+        self.suggestion_list.setWindowFlags(
+            Qt.Popup | Qt.FramelessWindowHint
+        )
+        self.suggestion_list.setFocusPolicy(Qt.NoFocus)
+        self.suggestion_list.setMouseTracking(True)
 
-        self.layout1 = QVBoxLayout()
-        self.layout1.addWidget(self.search_box)
-        self.layout1.addWidget(self.suggestion_list)
-        self.layout1.addWidget(self.info_label)
-
-        layout2 = QVBoxLayout()
-        layout2.addWidget(self.prof_label)
-
-        h_line = QFrame()
-        h_line.setFrameShape(QFrame.Shape.HLine)
-        h_line.setFrameShadow(QFrame.Shadow.Sunken)
-        layout2.addWidget(h_line)
-
-        self.save_button = QPushButton("Save Character")
-        self.save_button.clicked.connect(self.save_character)
-
-        self.new_window_button = QPushButton("Click to add new stuff")
-        self.new_window_button.clicked.connect(self.open_custom_menu)
-
-        self.class_dropdown = QComboBox()
-        classes = self.session.query(models.Class).all()
-        for cls in classes:
-            self.class_dropdown.addItem(cls.name)
-
-        self.race_dropdown = QComboBox()
-        race = self.session.query(models.Race).all()
-        for rce in race:
-            self.race_dropdown.addItem(rce.name)
-
-        layout2.addWidget(self.race_dropdown)
-        layout2.addWidget(self.class_dropdown)
-        layout2.addWidget(self.save_button)
-
-        
-        self.skill_boxes = []
-        for name in skill_names:
-            box = QCheckBox(name)
-            self.skill_boxes.append(box)
-            layout2.addWidget(box)
-        
-        layout3 = QHBoxLayout()
-        layout3.addLayout(layout2)
-        layout3.addLayout(self.layout1)
-        self.setLayout(layout3)
+        # Connect signals (you already have your click handler)
+        self.search_box.textEdited.connect(self.show_suggestions)
+        self.suggestion_list.itemClicked.connect(self.handle_suggestion_click)
 
         # Connect input box signal to internal handler
         self.search_box.textChanged.connect(self.handle_search_input)
@@ -97,101 +137,33 @@ class MainUI(QWidget):
         self.search_box.returnPressed.connect(self.handle_input)
 
         self.suggestion_list.itemClicked.connect(self.handle_suggestion_click)
-    def open_custom_menu(self):
-        self.homebrew_window = HomebrewWindow(self.session)
-        self.homebrew_window.show()
-
-    def oops_we_dont_have_that(self, query):
-        self.info_label.setText(f"As of now our database doesn't have '{query}'\n check for spelling mistakes, typos or weird spaces that databases hate \n or if its not in D&D SRD, and you want to add it, click below")
-        self.layout1.addWidget(self.new_window_button)
-    def get_selected_proficiencies(self):
-        return {
-        box.text(): True
-        for box in self.skill_boxes
-        if box.isChecked()
-        }
-
-    def save_character(self):
-        selected_skills = self.get_selected_proficiencies()
-        chosen_class = self.class_dropdown.currentText()
-        race_name = self.race_dropdown.currentText()
-
-        # You can now use selected_skills, class, and race however you like
-        print("Race:", race_name)
-        print("Class:", chosen_class)
-        print("Skills:", selected_skills)
-
-        self.info_label.setText("Character saved successfully!")
-
-    def handle_input(self):
-        query = self.search_box.text().strip()
-
-        if not query:
-            self.info_label.setText("Type a race, class, or spell name.")
-            return
-  # Fetch all items from database
-        results = api.search_items(self.all_items, query)
-
-        if not results:
-            self.oops_we_dont_have_that(query)
+    def show_suggestions(self, text):
+        if not text.strip():
+            self.suggestion_list.hide()
             return
 
-        # Just show the first match for now
-        item = results[0]
-        details = api.get_item_by_index(item['url'])
-
-        if not details:
-            self.info_label.setText("Error fetching item details.")
-            self.oops_we_dont_have_that(query)
-            return
-
-        # Display based on category
-        category = item['category']
-        print(f"Category value: {category!r}")
-
-
-
-    def handle_search_input(self):
-        query = self.search_box.text().strip()
-        if not query:
-            self.clear_suggestions()
-            return
-
-        items = self.search_items(query)
-        suggestions = self.autocomplete_search(items, query)
+        # Run your existing search function
+        suggestions = self.search_items(text)  # You already have this
         self.update_suggestions_ui(suggestions)
-        
+
+        if self.suggestion_list.count() == 0:
+            self.suggestion_list.hide()
+            return
+
+        # Position just below the search box
+        pos = self.search_box.mapToGlobal(QPoint(0, self.search_box.height()))
+        self.suggestion_list.move(pos)
+        self.suggestion_list.resize(self.search_box.width(), 150)
+        self.suggestion_list.show()
+
     def update_suggestions_ui(self, suggestions):
         self.suggestion_list.clear()
         for item in suggestions:
-            list_item = QListWidgetItem(f"{item['name']} ({item['index']})")
+            self.suggestion_list.addItem(item['name'])  # Adjust formatting
             list_item.setData(Qt.UserRole, item)
             self.suggestion_list.addItem(list_item)
 
 
-    def clear_suggestions(self):
-        self.suggestion_list.clear()
-
-    def autocomplete_search(self, items, query, max_results=5):
-        scored = [
-            (item, api.rank_search_term(item, query))
-            for item in items
-        ]
-        #sort the score by descending order from rank search term
-        filtered = [item for item, score in scored if score >0]
-
-        sorted_items = sorted(filtered, key=lambda x: api.rank_search_term(x, query), reverse=True)
-        return sorted_items[:max_results]
-
-    def search_items(self, query):
-        query = query.lower()
-        return[
-            item for item in self.all_items
-            if query in item['name'].lower() or query in item['index'].lower()
-            ]
-
-    
-    #Clicking suggestions and giving information
     def handle_suggestion_click(self, list_item):
         print("clicked")
         item = list_item.data(Qt.UserRole)
@@ -224,7 +196,12 @@ class MainUI(QWidget):
             print("Available formatter keys:", self.FORMATTERS.keys())
             self.info_label.setText(f"No formatter available for category: {category}")
 
-
+    def format_background(self, background):
+        return f"""<b>{background.name}</b><br>
+        Description: {background.description}<br>
+        Proficiences: {background.starting_proficiencies}<br>
+        Equipment: {background.starting_equipment}
+        """
     def format_race(self, race):
         return f"""<b>{race.name}</b><br>
         Index: {race.index}<br>

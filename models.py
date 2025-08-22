@@ -1,6 +1,7 @@
 from sqlalchemy import *
 from sqlalchemy.orm import *
 import os
+from passlib.hash import bcrypt
 
 base_dir = os.path.dirname(__file__)
 os.makedirs(os.path.join(base_dir, "data"), exist_ok=True)
@@ -11,6 +12,101 @@ engine = create_engine(DATABASE_URL, echo=True, future=True)
 SessionLocal = sessionmaker(bind=engine)
 
 Base = declarative_base()
+
+character_classes = Table(
+    "character_classes",
+    Base.metadata,
+    Column("character_id", Integer, ForeignKey("characters.id")),
+    Column("class_id", Integer, ForeignKey("classes.id"))
+)
+
+
+class Character(Base):
+    __tablename__ = "characters"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    level = Column(Integer, default=1)
+    experience_points = Column(Integer, default=0)
+    alignment = Column(String)
+
+    # Core information
+    race_id = Column(Integer, ForeignKey("races.id"))
+    race = relationship("Race")
+    classes = relationship("Class", secondary="character_classes", backref="characters")
+    background_id = Column(Integer, ForeignKey("backgrounds.id"))
+    background = relationship("Background")
+    user_id = Column(Integer, ForeignKey("users.id"))
+    user = relationship("User", back_populates="characters")
+
+    # Ability scores
+    strength = Column(Integer)
+    dexterity = Column(Integer)
+    constitution = Column(Integer)
+    intelligence = Column(Integer)
+    wisdom = Column(Integer)
+    charisma = Column(Integer)
+
+    # Other importants
+    inventory = Column(JSON)
+    backstory = Column(Text)
+
+    # Relationship to notes — one-to-many
+    notes = relationship(
+        "Notes",
+        back_populates="character",
+        foreign_keys="Notes.character_id"
+    )
+
+
+class Notes(Base):
+    __tablename__ = "notes"
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String, nullable=False)
+    content = Column(Text, nullable=True)
+    category = Column(String)
+
+    # Self-referential relationship
+    parent_id = Column(Integer, ForeignKey("notes.id"), nullable=True)
+    parent = relationship(
+        "Notes",
+        remote_side=[id],
+        backref="children"
+    )
+
+    character_id = Column(Integer, ForeignKey("characters.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    character = relationship(
+        "Character",
+        back_populates="notes",
+        foreign_keys=[character_id]
+    )
+    user = relationship(
+        "User",
+        back_populates="notes",
+        foreign_keys=[user_id]
+    )
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, nullable=False)
+    email = Column(String, unique=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+
+    characters = relationship("Character", back_populates="user")
+    notes = relationship("Notes", back_populates="user")
+
+    def set_password(self, password: str):
+        self.hashed_password = bcrypt.hash(password)
+
+    def verify_password(self, password: str) -> bool:
+        return bcrypt.verify(password, self.hashed_password)
+
 
 class Proficiency(Base):
     __tablename__ = "proficiencies"
@@ -275,6 +371,15 @@ class DamageType(Base):
     desc = Column(Text)
     url = Column(String, nullable=True)
 
+class Background(Base):
+    __tablename__ = "backgrounds"
+
+    id = Column(Integer, primary_key=True)
+    index = Column(String, unique=True)
+    name = Column(String)
+    description = Column(Text)
+    starting_proficiencies = Column(Text)  # You can store as comma-separated or JSON
+    starting_equipment = Column(Text)
 
 class Monster(Base):
     __tablename__ = "monsters"

@@ -331,6 +331,26 @@ def load_proficiencies(session):
         )
         session.merge(proficiency)
 
+def load_backgrounds(session):
+    models.Background.__table__.drop(models.engine, checkfirst=True)
+    models.Base.metadata.create_all(models.engine, tables=[models.Background.__table__])
+
+    data = fetch_json("backgrounds")["results"]
+    for item in data:
+        bg_data = fetch_json(f"backgrounds/{item['index']}")
+        background = models.Background(
+            name=bg_data["name"],
+            index=bg_data['index'],
+            description=bg_data.get("desc", [""])[0],
+            starting_proficiencies=", ".join([p["name"] for p in bg_data.get("starting_proficiencies", [])]),
+            starting_equipment=", ".join([e["equipment"]["name"] for e in bg_data.get("starting_equipment", [])])
+        )
+        session.merge(background)
+
+    session.commit()
+    print("Backgrounds loaded successfully.")
+
+
 def load_monsters(session):
     data = fetch_json("monsters")["results"]
     for item in data:
